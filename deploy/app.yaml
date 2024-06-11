@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: "default"
+  name: app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app
+  template:
+    metadata:
+      labels:
+        app: app
+    spec:
+      containers:
+        - name: app
+          image: dubter/url-shortener:v3
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: env-config
+              mountPath: /etc/url-shortener
+      volumes:
+        - name: env-config
+          configMap:
+            name: env-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: "default"
+  name: app
+spec:
+  ports:
+    - port: 8080
+      targetPort: 8080
+  selector:
+    app: app
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: env-config
+  namespace: "default"
+data:
+  .env: |
+    ENV="dev"
+  
+    TEMPLATES_PATH="templates"
+  
+    POSTGRES_URL="host=postgres-postgresql user=postgres dbname=postgres password=58s9ddjZ3j sslmode=disable"
+  
+    REDIS_HOSTS="redis-master:6379"
+    REDIS_PASSWORD="l9rd6sGecC"
+---
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: app-gateway
+  namespace: default
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "*"
+---
+kind: VirtualService
+apiVersion: networking.istio.io/v1beta1
+metadata:
+  name: app-vs
+  namespace: default
+spec:
+  hosts:      # which incoming host are we applying the proxy rules to???
+    - "*"
+  gateways:
+    - app-gateway
+  http:
+    - match:
+        - uri :
+            prefix: "/"
+      route:
+        - destination:
+            port:
+              number: 8080
+            host: app

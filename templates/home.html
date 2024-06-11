@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title> Shorten a long and complex URL</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Free and opensource GOlang URL shortener service with UI, API, Cache, Hits Counter and forwarder">
+  <meta property="og:title" content="Shorten a long and complex URL for free" />
+  <meta property="og:description" content="Free and opensource GOlang URL shortener service with UI, API, Cache, Hits Counter and forwarder" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.1/css/bulma.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.2/css/all.min.css">
+  <style>
+    .icon .fas.is-left {
+      height: 0.45em;
+      width: 0.45em;
+      font-size: 1.5em;
+    }
+    .table {
+      width: 100%;
+    }
+    .th-code {
+      width: 12%;
+    }
+    .th-url {
+      width: 88%;
+    }
+    .copy-url {
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+<div class="container is-fluid xhas-text-centered">
+  <div class="hero">
+    <div class="hero-body">
+      <h1 class="title">Shorten a long URL</h1>
+      <form id="url-form" method="POST" onsubmit="return shortenUrl()">
+        <div class="field">
+          <div class="control has-icons-left">
+            <span class="icon"><i class="fas fa-link is-left"></i></span>
+            <input class="input is-danger is-medium" id="long" type="url" required="required" placeholder="Long URL here" name="url" autocomplete="off">
+          </div>
+          <p class="help is-danger">URL is required, only ftp and http(s) supported</p>
+        </div>
+
+        <div class="field">
+          <div class="control">
+            <button id="button" class="button is-primary">Shorten</button>
+            <button id="copy" class="button is-success is-hidden" onclick="return copyShortUrl()">
+              Copy Short URL
+            </button>
+          </div>
+          <p class="help is-medium" id="info">&nbsp;</p>
+        </div>
+      </form>
+      <h4 class="subtitle">
+        Source code: <a target="_blank" rel="noopener" href="https://github.com/dubter/url-shortener">dubter/url-shortener</a>
+      </h4>
+      <hr>
+      <table class="table">
+        <thead>
+          <tr>
+            <th class="th-code">Short URL</th>
+            <th class="th-url">Origin URL</th>
+          </tr>
+        </thead>
+        <tbody id="history">
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<script>
+const form = document.getElementById('url-form')
+const butn = document.getElementById('button')
+const info = document.getElementById('info')
+const copy = document.getElementById('copy')
+const hist = document.getElementById('history')
+const base = `${document.location.protocol}//${document.location.host}`
+
+function shortenUrl() {
+  if (butn.classList.contains('is-loading')) return false
+
+  const formData = new FormData(form)
+  const payload = {
+    url: formData.get('url'),
+  }
+
+  butn.classList.add('is-loading')
+
+  fetch('/api/urls', {body: JSON.stringify(payload), method: 'POST', headers: {'Accept': 'application/json'}})
+    .then(res => res.json())
+    .then(data => renderResponse({...data, url: payload.url}))
+    .catch(_ => info.innerText = 'unknown error')
+
+  return false
+}
+
+function copyShortUrl() {
+  navigator.clipboard.writeText(copy.dataset.shortUrl).then(_ => {
+    copy.innerText = 'Copied'
+    setTimeout(_ => copy.classList.add('is-hidden'), 1500)
+  })
+
+  return false
+}
+
+function renderResponse(data) {
+  butn.classList.remove('is-loading')
+  info.classList.remove('is-danger', 'is-success', 'is-info')
+  info.classList.add({200: 'is-primary', 409: 'is-info'}[data.status] || 'is-danger')
+
+  if (!data.short_code) {
+    info.innerText = data.message || 'unknown error'
+    copy.classList.add('is-hidden')
+
+    return
+  }
+
+  info.innerHTML = '&nbsp;'
+  copy.innerText = `Copy ${document.location.host}/${data.short_code}`
+  copy.classList.remove('is-hidden')
+  copy.dataset.shortUrl = `${base}/${data.short_code}`
+
+  form.reset()
+
+  if (localStorage[data.short_code]) return
+
+  localStorage[data.short_code] = data.url
+  localStorage['__'] = (data.short_code + ' ' + (localStorage['__'] || '')).trim()
+
+  setTimeout(_ => renderHistory(data.short_code, data.url, 0), 100)
+}
+
+function renderHistory(code, url, idx) {
+  const row  = hist.insertRow(idx)
+
+  row.insertCell().innerHTML = `<a href="${base}/${code}" target="_blank" title="${url}">${code}</a>
+    <span class="icon"><i class="fas fa-copy copy-url" title="Copy URL" data-short-url="${base}/${code}"></i></span>`
+  row.insertCell().innerText = url.length > 150 ? url.substring(0, 150) + '...' : url
+}
+
+function loadHistory() {
+  if (!localStorage['__']) return
+
+  for (const code of localStorage['__'].split(' ')) {
+    if (!localStorage[code]) continue
+    renderHistory(code, localStorage[code], -1)
+  }
+}
+
+setTimeout(loadHistory, 500)
+document.addEventListener('click', e => {
+  if (e.target && e.target.classList.contains('copy-url')) {
+    navigator.clipboard.writeText(e.target.dataset.shortUrl).then(_ => {
+      e.target.classList.replace('fa-copy', 'fa-check')
+      setTimeout(_ => e.target.classList.replace('fa-check', 'fa-copy'), 2000)
+    })
+  }
+})
+</script>
+</body>
+</html>

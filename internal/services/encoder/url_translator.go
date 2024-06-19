@@ -31,7 +31,7 @@ func (e *Encoder) Encode(id int) string {
 		id /= Base
 	}
 
-	return buf.String()
+	return Reverse(buf.String())
 }
 
 func (e *Encoder) Decode(code string) int {
@@ -42,4 +42,12 @@ func (e *Encoder) Decode(code string) int {
 	}
 
 	return id
+}
+
+func Reverse(s string) string {
+	runes := []rune(s)
+	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+		runes[i], runes[j] = runes[j], runes[i]
+	}
+	return string(runes)
 }

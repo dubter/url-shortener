@@ -24,14 +24,14 @@ func (e *Encoder) Encode(id int) string {
 		return string(Alphabet[0])
 	}
 
-	buf := ""
+	buf := strings.Builder{}
 
 	for id > 0 {
-		buf = string(Alphabet[id%Base]) + buf
+		buf.WriteByte(Alphabet[id%Base])
 		id /= Base
 	}
 
-	return buf
+	return buf.String()
 }
 
 func (e *Encoder) Decode(code string) int {

@@ -4,17 +4,13 @@ import (
 	"net"
 	"net/url"
 	"regexp"
-	"strconv"
-	"time"
 	"url-shortner/internal/domain/validation"
 )
 
 // URLInput defines structure for create short code url request
 type URLInput struct {
-	URL       string   `json:"url" binding:"required"`
-	ExpiresOn string   `json:"expires_on"`
-	Keywords  []string `json:"keywords"`
-	Host      string   `json:"-"`
+	URL  string `json:"url" binding:"required"`
+	Host string `json:"-"`
 }
 
 // URLFilter defines structure for short code list and search request
@@ -36,13 +32,11 @@ var (
 
 	URLMinLength   = 15
 	URLMaxLength   = 2048
-	KeywordRegex   = `^[a-zA-Z0-9-_]+$`
 	URLRegex       = `^` + URLSchema + `?` + URLUsername + `?` + `((` + URLIP + `|(\[` + IP + `\])|(([a-zA-Z0-9]([a-zA-Z0-9-_]+)?[a-zA-Z0-9]([-\.][a-zA-Z0-9]+)*)|(` + URLSubdomain + `?))?(([a-zA-Z\x{00a1}-\x{ffff}0-9]+-?-?)*[a-zA-Z\x{00a1}-\x{ffff}0-9]+)(?:\.([a-zA-Z\x{00a1}-\x{ffff}]{1,}))?))\.?` + URLPort + `?` + URLPath + `?$`
 	URLFilterRegex = `(xxx|localhost|127\.0\.0\.1|\.local)`
 )
 
 var (
-	kwRe     = regexp.MustCompile(KeywordRegex)
 	urlRe    = regexp.MustCompile(URLRegex)
 	filterRe = regexp.MustCompile(URLFilterRegex)
 )
@@ -72,65 +66,5 @@ func (input *URLInput) Validate() error {
 		return validation.ErrInvalidURL
 	}
 
-	if len(input.Keywords) > 10 {
-		return validation.ErrKeywordsCount
-	}
-
-	for _, word := range input.Keywords {
-		if l := len(word); l < 2 || l > 25 {
-			return validation.ErrKeywordLength
-		}
-
-		if !kwRe.MatchString(word) {
-			return validation.ErrInvalidKeyword
-		}
-	}
-
-	return input.ValidateExpiry()
-}
-
-// ValidateExpiry validates expires_on date if not empty
-// It returns error if expiry date is not valid.
-func (input URLInput) ValidateExpiry() error {
-	if input.ExpiresOn == "" {
-		return nil
-	}
-
-	if len(input.ExpiresOn) != len(validation.DateLayout) {
-		return validation.ErrInvalidDate
-	}
-
-	expiresOn, err := input.GetExpiresOn()
-	if err != nil {
-		return validation.ErrInvalidDate
-	}
-
-	if expiresOn.In(time.UTC).Before(time.Now().In(time.UTC)) {
-		return validation.ErrPastExpiration
-	}
-
 	return nil
-}
-
-// GetExpiresOn gets date time instance or error if parse fails
-func (input URLInput) GetExpiresOn() (time.Time, error) {
-	if input.ExpiresOn == "" {
-		return time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC), nil
-	}
-
-	return time.ParseInLocation(validation.DateLayout, input.ExpiresOn, time.UTC)
-}
-
-// GetOffset gets normalized pagination offset
-func (filter URLFilter) GetOffset(limit int) int {
-	if filter.Page == "" {
-		return 0
-	}
-
-	page, err := strconv.Atoi(filter.Page)
-	if err != nil || page < 2 {
-		return 0
-	}
-
-	return (page - 1) * limit
 }

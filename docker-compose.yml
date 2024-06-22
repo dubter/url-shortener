@@ -1,0 +1,62 @@
+version: '3.9'
+
+services:
+  nginx:
+    restart: always
+    container_name: nginx
+    image: nginx:1.23
+    ports:
+      - "80:80"
+    volumes:
+      - ./config/nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - app
+
+  app:
+    restart: always
+    container_name: app
+    build: .
+    ports:
+      - "8080"
+    volumes:
+      - ./config/.env-dev:/etc/url-shortener/.env
+      - ./templates:/etc/url-shortener/templates
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  postgres:
+    restart: always
+    container_name: postgres
+    image: docker.io/bitnami/postgresql:16
+    ports:
+      - "5432:5432"
+    volumes:
+      - .data/postgres:/bitnami/postgresql
+    environment:
+      - POSTGRESQL_USERNAME=postgres
+      - POSTGRESQL_PASSWORD=postgres
+      - POSTGRESQL_DATABASE=postgres
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 2s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    restart: always
+    container_name: redis
+    image: docker.io/bitnami/redis:7.2
+    ports:
+      - "6379:6379"
+    volumes:
+      - .data/redis:/bitnami/redis/data
+    environment:
+      - REDIS_PASSWORD=redis
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 2s
+      timeout: 5s
+      retries: 5
